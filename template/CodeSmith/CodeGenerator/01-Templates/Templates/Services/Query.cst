@@ -1,5 +1,5 @@
 ﻿<%@ Template Language="C#" TargetLanguage="C#" Debug="True" Encoding="UTF-8" %>
-<%@ Register Name="TreeQuery" Template="TreeQuery.cst" MergeProperties="False" ExcludeProperties="" %>
+<%@ Register Name="TreeQuery" Template="Trees/TreeQuery.cst" MergeProperties="False" ExcludeProperties="" %>
 
 <%@ Assembly Src="..\..\Common\Model.cs" %>
 <%@ Assembly Src="..\..\Common\Extensions.cs" %>
@@ -33,7 +33,7 @@ using Util.Datas.Queries;
 
 namespace <%= string.Format("{0}.Service.Queries.{1}",Namespace,Entity.TableSchema) %> {
     /// <summary>
-    /// <%= Description %>查询实体
+    /// <%= Description %>查询参数
     /// </summary>
     public class <%= SafeClassName %>Query : QueryParameter {
         <% foreach(Property p in Entity.Properties) { %>
@@ -48,7 +48,7 @@ namespace <%= string.Format("{0}.Service.Queries.{1}",Namespace,Entity.TableSche
         /// 结束<%=p.Description %>
         /// </summary>
         [Display( Name = "结束<%=p.Description %>" )]
-        public DateTime? End<%= p.PropertyName.ToSafeName() %> { get; set; }        
+        public DateTime? End<%= p.PropertyName.ToSafeName() %> { get; set; }
         <%continue;}%>
         <% if( p.SystemType == typeof(string) ) {%>
         

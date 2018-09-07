@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Util.Properties;
+using Util.Sessions;
 using Util.Webs.Commons;
 using Util.Webs.Filters;
 
@@ -8,9 +9,13 @@ namespace Util.Webs.Controllers {
     /// WebApi控制器
     /// </summary>
     [Route( "api/[controller]" )]
-    [ExceptionHandler]
-    [AutoValidateAntiforgeryToken]
+    [ErrorLog]
     public class WebApiControllerBase : Controller {
+        /// <summary>
+        /// 会话
+        /// </summary>
+        public virtual ISession Session => Security.Sessions.Session.Instance;
+
         /// <summary>
         /// 返回成功消息
         /// </summary>

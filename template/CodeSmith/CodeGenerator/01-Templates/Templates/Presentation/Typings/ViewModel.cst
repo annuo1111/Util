@@ -1,5 +1,5 @@
 ﻿<%@ Template Language="C#" TargetLanguage="C#" Debug="True" Encoding="UTF-8" %>
-<%@ Register Name="TreeViewModel" Template="TreeViewModel.cst" MergeProperties="False" ExcludeProperties="" %>
+<%@ Register Name="TreeViewModel" Template="Trees/TreeViewModel.cst" MergeProperties="False" ExcludeProperties="" %>
 
 <%@ Assembly Src="..\..\..\Common\Model.cs" %>
 <%@ Assembly Src="..\..\..\Common\Extensions.cs" %>

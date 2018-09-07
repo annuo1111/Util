@@ -1,15 +1,15 @@
-﻿using Util.Ui.Builders;
+﻿using Util.Ui.Angular.Renders;
+using Util.Ui.Builders;
 using Util.Ui.Configs;
 using Util.Ui.Extensions;
 using Util.Ui.Material.Tables.Builders;
 using Util.Ui.Material.Tables.Configs;
-using Util.Ui.Renders;
 
 namespace Util.Ui.Material.Tables.Renders {
     /// <summary>
     /// 表格渲染器
     /// </summary>
-    public class TableRender : RenderBase {
+    public class TableRender : AngularRenderBase {
         /// <summary>
         /// 配置
         /// </summary>
@@ -44,8 +44,6 @@ namespace Util.Ui.Material.Tables.Renders {
         /// 配置表格包装器
         /// </summary>
         protected void ConfigTableWrapper( TagBuilder builder ) {
-            builder.Class( _config );
-            builder.Style( _config );
             ConfigId( builder );
             ConfigQueryParam( builder );
             ConfigUrl( builder );
@@ -59,15 +57,14 @@ namespace Util.Ui.Material.Tables.Renders {
         /// </summary>
         protected override void ConfigId( TagBuilder builder ) {
             builder.AddAttribute( $"#{_config.Id}" );
-            builder.AddAttribute( "key", _config.Id );
+            builder.AddAttribute( "key", _config.GetValue( UiConst.Key ) );
         }
 
         /// <summary>
         /// 配置查询参数
         /// </summary>
         private void ConfigQueryParam( TagBuilder builder ) {
-            builder.AddAttribute( "[queryParam]", _config.GetValue( UiConst.QueryParam ) );
-            builder.AddAttribute( "(onQueryRestore)", _config.GetValue( UiConst.OnQueryRestore ) );
+            builder.AddAttribute( "[(queryParam)]", _config.GetValue( UiConst.QueryParam ) );
         }
 
         /// <summary>
@@ -154,7 +151,7 @@ namespace Util.Ui.Material.Tables.Renders {
         /// </summary>
         protected virtual void AddHeaderRow( TagBuilder tableBuilder, string columns ) {
             var headerRowBuilder = new HeaderRowBuilder();
-            headerRowBuilder.AddColumns( columns );
+            headerRowBuilder.AddColumns( columns, _config.GetValue( UiConst.StickyHeader ).ToBoolOrNull() );
             tableBuilder.AppendContent( headerRowBuilder );
         }
 

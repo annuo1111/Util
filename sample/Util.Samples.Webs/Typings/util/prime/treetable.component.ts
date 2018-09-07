@@ -3,18 +3,12 @@
 // 修改： 何镇汐
 //Licensed under the MIT license
 //================================================
-import { NgModule, Component, Input, Output, EventEmitter, AfterContentInit, ElementRef, ContentChild, IterableDiffers, ChangeDetectorRef, ContentChildren, QueryList, Inject, forwardRef, OnInit, Renderer2, ViewChild } from '@angular/core';
+import { NgModule, Component, Input, Output, EventEmitter, AfterContentInit, ElementRef, ContentChild, ChangeDetectorRef, ContentChildren, QueryList, Inject, forwardRef, OnInit, Renderer2, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TreeNode, Header, Footer, Column, SharedModule, DomHandler } from "primeng/primeng";
-//Material模块
 import { MatCommonModule, MatCheckboxModule, MatPaginatorModule, MatProgressBarModule, MatPaginator, MatRadioModule } from '@angular/material';
-import { WebApi as webapi } from '../common/webapi';
-import { Message as message } from '../common/message';
-import { PagerList } from '../core/pager-list';
-import { ITreeNode, LoadOperation, TreeQueryParameter } from '../core/tree';
 import { MessageConfig as config } from '../config/message-config';
-import { DicService } from '../services/dic.service';
-import { Util as util } from '../util';
+import { util, HttpMethod, PagerList, TreeViewModel, TreeQueryParameter, DicService } from '../index';
 
 @Component({
     selector: 'p-tree-table',
@@ -50,7 +44,9 @@ import { Util as util } from '../util';
                         </td>
                     </tr>
                 </tfoot>                
-                <tbody pTreeRow *ngFor="let node of dataSource" class="ui-treetable-data ui-widget-content" [node]="node" [level]="0" [labelExpand]="labelExpand" [labelCollapse]="labelCollapse"></tbody>
+                <tbody pTreeRow *ngFor="let node of dataSource;let i = index;let isFirst = first;let isLast = last;" class="ui-treetable-data ui-widget-content" 
+                    [first]="isFirst" [last]="isLast" [index]="i" [node]="node"
+                    [level]="0" [labelExpand]="labelExpand" [labelCollapse]="labelCollapse"></tbody>
             </table>
         </div>
             
@@ -77,7 +73,11 @@ import { Util as util } from '../util';
     `],
     providers: [DomHandler]
 })
-export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentInit {
+export class TreeTable<T extends TreeViewModel & TreeNode> implements AfterContentInit {
+    /**
+     * 仅在叶节点显示单选按钮
+     */
+    @Input() leafOnly: boolean;
     /**
      * 查询延迟
      */
@@ -127,13 +127,37 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
      */
     @Input() deleteUrl: string;
     /**
+     * 交换排序地址，范例：/api/test/swap
+     */
+    @Input() swapSortUrl: string;
+    /**
+     * 修正地址，范例：/api/test/fix
+     */
+    @Input() fixUrl: string;
+    /**
      * 查询参数
      */
     @Input() queryParam: TreeQueryParameter;
     /**
-     * 查询参数还原事件
+     * 单击行时选中复选框或单选框
      */
-    @Output() onQueryRestore = new EventEmitter<TreeQueryParameter>();
+    @Input() checkOnClickRow: boolean;
+    /**
+     * 查询参数变更事件
+     */
+    @Output() queryParamChange = new EventEmitter<TreeQueryParameter>();
+    /**
+     * 数据加载完成事件
+     */
+    @Output() onLoad: EventEmitter<any> = new EventEmitter();
+    /**
+     * 复选框或单选框选中事件
+     */
+    @Output() onCheck: EventEmitter<any> = new EventEmitter();
+    /**
+     * 单击行事件
+     */
+    @Output() onClickRow: EventEmitter<any> = new EventEmitter();
     /**
      * 分页组件
      */
@@ -187,15 +211,17 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
 
     @ViewChild('tbl') tableViewChild: ElementRef;
 
+    selectedNode;
 
+    rowTouched: boolean;
 
-    public rowTouched: boolean;
-
-    public columns: Column[];
+    columns: Column[];
 
     columnsSubscription;
 
-    constructor(public el: ElementRef, public domHandler: DomHandler, public changeDetector: ChangeDetectorRef, public renderer: Renderer2, private dic: DicService<TreeQueryParameter>) {
+    private dic: DicService<TreeQueryParameter>;
+
+    constructor(public el: ElementRef, public domHandler: DomHandler, public changeDetector: ChangeDetectorRef, public renderer: Renderer2) {
         this.pageSizeOptions = [10, 20, 50, 100];
         this.loading = false;
         this.autoLoad = true;
@@ -205,6 +231,7 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
     }
 
     ngAfterContentInit() {
+        this.dic = util.ioc.get<DicService<TreeQueryParameter>>(DicService);
         this.init();
     }
 
@@ -219,8 +246,12 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
         });
         this.initPaginator();
         this.restoreQueryParam();
-        if (this.autoLoad)
-            this.query();
+        if (this.autoLoad) {
+            this.query(null,
+                (data) => {
+                    this.onLoad.emit(data);
+                });
+        }
     }
 
     /**
@@ -261,33 +292,35 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
         if (!query)
             return;
         this.queryParam = query;
-        this.onQueryRestore.emit(query);
+        this.queryParamChange.emit(query);
     }
 
     /**
      * 查询
+     * @param button 按钮
+     * @param handler 成功回调函数
      */
-    query() {
+    query(button?, handler?: (data: PagerList<T>) => void) {
         this.sendQuery(result => {
             result = new PagerList<T>(result);
             this.dataSource = result.data;
             this.paginator.pageIndex = result.page - 1;
             this.totalCount = result.totalCount;
-            this.selection = new Array<T>();
-        });
+            handler && handler(result);
+        }, null, button);
     }
 
     /**
      * 发送查询请求
      */
-    private sendQuery(handler: (result: PagerList<T>) => void, completeHandler?: () => void) {
+    private sendQuery(handler: (result: PagerList<T>) => void, completeHandler?: () => void, button?) {
         let url = this.url || (this.baseUrl && `/api/${this.baseUrl}`);
         if (!url) {
             console.log("树型表格url未设置");
             return;
         }
         this.processParam();
-        webapi.get<PagerList<T>>(url).param(this.queryParam).handle({
+        util.webapi.get<PagerList<T>>(url).param(this.queryParam).button(button).handle({
             beforeHandler: () => { this.loading = true; return true; },
             handler: handler,
             completeHandler: () => {
@@ -331,37 +364,62 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
     /**
      * 刷新
      * @param queryParam 查询参数
+     * @param button 按钮
+     * @param handler 刷新后回调函数
      */
-    refresh(queryParam) {
+    refresh(queryParam, button?, handler?: (data: PagerList<T>) => void) {
         this.queryParam = queryParam;
         this.initPage();
         this.queryParam.order = this.initOrder;
         this.dic.remove(this.key);
-        this.selection = new Array<T>();
-        this.query();
+        util.helper.clear(this.selection);
+        this.query(button, handler);
     }
 
     /**
      * 加载下级节点
      * @param node 父节点
+     * @param handler 成功回调
      */
-    loadChild(node: T) {
+    loadChildren(node: T, handler?: () => void) {
         if (!node)
             return;
         if (node.children)
             return;
-        this.queryParam["operation"] = LoadOperation.LoadChild;
+        this.refreshChildren(node, handler);
+    }
+
+    /**
+     * 刷新下级节点
+     * @param node 父节点
+     * @param button 按钮
+     */
+    private refreshChildren(node, handler?: () => void, button?) {
+        if (!node)
+            return;
+        this.queryParam["operation"] = "LoadChild";
         this.queryParam.parentId = node.data.id;
         this.sendQuery(result => {
             if (result && result.data && result.data.length > 0) {
                 node.children = result.data;
+                handler && handler();
                 return;
             }
             node.leaf = true;
         }, () => {
-            this.queryParam["operation"] = ""; 
+            this.queryParam["operation"] = "";
             this.queryParam.parentId = "";
-        });
+        }, button);
+    }
+
+    /**
+     * 刷新根节点
+     */
+    private refreshRoots(handler?: () => void, button?) {
+        this.sendQuery(result => {
+            this.dataSource = result.data;
+            handler && handler();
+        }, null, button);
     }
 
     /**
@@ -372,10 +430,34 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
     }
 
     /**
-     * 获取被选中实体Id列表
+     * 获取被选中实体标识列表
+     * @param checkedNodes 选中实体列表
      */
-    getCheckedIds(): string {
-        return this.selection.map(node => node && node.data && node.data.id).join(",");
+    getCheckedIds(checkedNodes?): string {
+        checkedNodes = checkedNodes || this.selection;
+        return this.getIds(checkedNodes);
+    }
+
+    /**
+     * 获取实体标识列表
+     * @param nodes 实体列表
+     */
+    getIds(nodes?): string {
+        if (!nodes)
+            return null;
+        if (!nodes.map)
+            return nodes.id || nodes.data && nodes.data.id;
+        return nodes.map(node => (node && node.id) || (node && node.data && node.data.id)).join(",");
+    }
+
+    /**
+     * 获取单选框选中的单个实体
+     */
+    getSingleChecked(): T {
+        let checkedNodes = this.getChecked();
+        if (!checkedNodes || checkedNodes.length === 0)
+            return null;
+        return checkedNodes[0];
     }
 
     /**
@@ -383,37 +465,38 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
      * @param ids 待删除的Id列表，多个Id用逗号分隔，范例：1,2,3
      * @param handler 删除成功回调函数
      * @param deleteUrl 服务端删除Api地址，如果设置了基地址baseUrl，则可以省略该参数
+     * @param button 按钮
      */
-    delete(ids?: string, handler?: () => void, deleteUrl?: string) {
+    delete(ids?: string, handler?: () => void, deleteUrl?: string, button?) {
         ids = ids || this.getCheckedIds();
         if (!ids) {
-            message.warn(config.deleteNotSelected);
+            util.message.warn(config.deleteNotSelected);
             return;
         }
-        message.confirm(config.deleteConfirm, () => {
-            this.deleteRequest(ids, handler, deleteUrl);
+        util.message.confirm(config.deleteConfirm, () => {
+            this.deleteRequest(ids, handler, deleteUrl, button);
         });
     }
 
     /**
      * 发送删除请求
      */
-    private deleteRequest(ids?: string, handler?: () => void, deleteUrl?: string) {
+    private deleteRequest(ids?: string, handler?: () => void, deleteUrl?: string, button?) {
         deleteUrl = deleteUrl || this.deleteUrl || (this.baseUrl && `/api/${this.baseUrl}/delete`);
         if (!deleteUrl) {
             console.log("树型表格deleteUrl未设置");
             return;
         }
-        webapi.post(deleteUrl, ids).handle({
+        util.webapi.post(deleteUrl, ids).button(button).handle({
             handler: () => {
                 if (handler) {
                     handler();
                     return;
                 }
-                message.snack(config.deleteSuccessed);
+                util.message.snack(config.deleteSuccessed);
                 let idList = util.helper.toList<string>(ids);
                 this.removeFromDataSource(null, this.dataSource, idList);
-                this.selection = new Array<T>();
+                util.helper.clear(this.selection);
             }
         });
     }
@@ -421,13 +504,350 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
     /**
      * 从数据源移除项
      */
-    private removeFromDataSource(parent, treeNodes: any[], ids: string[]) {
+    private removeFromDataSource(parent, treeNodes: any[], ids: string[]): void {
         if (!treeNodes)
-            return treeNodes;
+            return;
         util.helper.remove(treeNodes, t => ids.some(id => id === t.data.id));
         if (treeNodes && treeNodes.length === 0 && parent)
             parent.children = null;
         treeNodes.forEach(t => this.removeFromDataSource(t, t.children, ids));
+    }
+
+    /**
+     * 获取节点列表
+     * @param ids 节点标识列表，逗号分隔的标识
+     */
+    getByIds(ids: string): T[] {
+        if (!ids)
+            return [];
+        let result = new Array<T>();
+        this.addToResult(result, this.dataSource, ids.split(","));
+        return result;
+    }
+
+    /**
+     * 递归添加到节点
+     */
+    private addToResult(result: Array<T>, children: TreeNode[], ids: string[]) {
+        if (!children)
+            return;
+        children.forEach(item => {
+            if (this.contains(ids, item))
+                result.push(<T>item);
+            this.addToResult(result, item.children, ids);
+        });
+    }
+
+    /**
+     * 是否包含节点
+     */
+    private contains(ids: string[], node) {
+        if (ids.some(id => node.id === id))
+            return true;
+        if (ids.some(id => node.data && node.data.id === id))
+            return true;
+        return false;
+    }
+
+    /**
+     * 获取节点
+     * @param id 节点标识
+     * @param parent 父节点
+     */
+    getById(id, parent?: T): T {
+        id = this.getId(id);
+        if (!id)
+            return null;
+        parent = parent || this.getParent(id);
+        let children = this.getChildren(parent);
+        if (!children)
+            return null;
+        return <T>children.find(t => (t.data && t.data.id) === id);
+    }
+
+    /**
+     * 获取子节点列表
+     */
+    private getChildren(parent): T[] {
+        if (parent === null)
+            return this.dataSource;
+        if (parent && parent.children)
+            return parent.children;
+        return null;
+    }
+
+    /**
+     * 获取标识，参数可以是标识，也可以是节点
+     */
+    getId(id) {
+        if (!id)
+            return null;
+        if (id.data)
+            return id.data.id;
+        if (id.id)
+            return id.id;
+        return id;
+    }
+
+    /**
+     * 获取父节点
+     * @param id 节点标识
+     */
+    getParent(id): T {
+        id = this.getId(id);
+        if (!id)
+            return null;
+        return this.getParentByRecursion(this.dataSource, id, null);
+    }
+
+    /**
+     * 递归获取父节点
+     */
+    private getParentByRecursion(children: any[], id, parent?): T {
+        if (!children)
+            return null;
+        let current = children.find(t => (t.data && t.data.id) === id);
+        if (current)
+            return parent;
+        let result = null;
+        children.forEach(item => {
+            let node = this.getParentByRecursion(item.children, id, item);
+            if (node)
+                result = node;
+        });
+        return result;
+    }
+
+    /**
+     * 是否首行
+     * @param node 节点
+     */
+    isFirst(node) {
+        if (!node || !node.data)
+            return false;
+        let id = this.getId(node);
+        let parent = node.parent || this.getParent(id);
+        node.parent = parent;
+        let children = this.getChildren(parent);
+        if (!children)
+            return false;
+        let first = util.helper.first<T>(children);
+        if (!first || !first.data)
+            return false;
+        return first.data.id === node.data.id;
+    }
+
+    /**
+     * 是否尾行
+     * @param node 节点
+     */
+    isLast(node) {
+        if (!node || !node.data)
+            return false;
+        let id = this.getId(node);
+        let parent = node.parent || this.getParent(id);
+        node.parent = parent;
+        let children = this.getChildren(parent);
+        if (!children)
+            return false;
+        let last = util.helper.last<T>(children);
+        if (!last || !last.data)
+            return false;
+        return last.data.id === node.data.id;
+    }
+
+    /**
+     * 获取前一个节点
+     * @param id 节点标识
+     * @param parent 父节点
+     */
+    getPrev(id, parent?: T) {
+        id = this.getId(id || this.getSingleChecked());
+        if (!id)
+            return null;
+        parent = parent || this.getParent(id);
+        let children = this.getChildren(parent);
+        if (!children)
+            return null;
+        let result = null;
+        for (let i = 0; i < children.length; i++) {
+            let value = children[i];
+            if (value.data && value.data.id === id)
+                return result;
+            result = value;
+        }
+        return result;
+    }
+
+    /**
+     * 获取下一个节点
+     * @param id 节点标识
+     * @param parent 父节点
+     */
+    getNext(id, parent?: T) {
+        id = this.getId(id || this.getSingleChecked());
+        if (!id)
+            return null;
+        parent = parent || this.getParent(id);
+        let children = this.getChildren(parent);
+        if (!children)
+            return null;
+        let isNext = false;
+        for (let i = 0; i < children.length; i++) {
+            let value = children[i];
+            if (isNext)
+                return value;
+            if (value.data && value.data.id === id)
+                isNext = true;
+        }
+        return null;
+    }
+
+    /**
+     * 上移
+     * @param id 节点标识
+     * @param button 按钮
+     * @param url 上移服务端Url
+     */
+    moveUp(id, button?, url?: string) {
+        id = this.getId(id || this.getSingleChecked());
+        if (!id)
+            return;
+        let parent = this.getParent(id);
+        let prev = this.getPrev(id, parent);
+        let current = this.getById(id, parent);
+        if (!prev || !prev.data || !current || !current.data)
+            return;
+        if (current.data.sortId !== prev.data.sortId) {
+            this.up(id, parent, button, url);
+            return;
+        }
+        this.fix(parent, button, () => {
+            let parent = this.getParent(id);
+            this.up(id, parent, button, url);
+        }, url);
+    }
+
+    /**
+     * 上移
+     */
+    up(id, parent, button?, url?: string) {
+        let prev = this.getPrev(id, parent);
+        let current = this.getById(id, parent);
+        let children = this.getChildren(parent);
+        if (!prev || !prev.data || !current || !current.data)
+            return;
+        this.swapSort(prev, current);
+        this.swapSortRequest(`${current.data.id},${prev.data.id}`, button, () => {
+            this.sort(children);
+            this.selectedNode = current;
+        }, url);
+    }
+
+    /**
+     * 下移
+     * @param id 节点标识
+     * @param button 按钮
+     * @param url 上移服务端Url
+     */
+    moveDown(id, button?, url?: string) {
+        id = this.getId(id || this.getSingleChecked());
+        if (!id)
+            return;
+        let parent = this.getParent(id);
+        let current = this.getById(id, parent);
+        let next = this.getNext(id, parent);
+        if (!next || !next.data || !current || !current.data)
+            return;
+        if (current.data.sortId !== next.data.sortId) {
+            this.down(id, parent, button, url);
+            return;
+        }
+        this.fix(parent, button, () => {
+            let parent = this.getParent(id);
+            this.down(id, parent, button, url);
+        }, url);
+    }
+
+    /**
+     * 下移
+     */
+    private down(id, parent, button?, url?: string) {
+        let current = this.getById(id, parent);
+        let next = this.getNext(id, parent);
+        let children = this.getChildren(parent);
+        this.swapSort(current, next);
+        this.swapSortRequest(`${current.data.id},${next.data.id}`, button, () => {
+            this.sort(children);
+            this.selectedNode = current;
+        }, url);
+    }
+
+    /**
+     * 交换排序号
+     * @param left 左操作数
+     * @param right 右操作数
+     */
+    swapSort(left, right) {
+        if (!left || !left.data || !right || !right.data)
+            return;
+        var sortId = left.data.sortId;
+        left.data.sortId = right.data.sortId;
+        right.data.sortId = sortId;
+    }
+
+    /**
+     * 发送交换排序请求
+     */
+    private swapSortRequest(ids?: string, button?, handler?: () => void, url?: string) {
+        url = url || this.swapSortUrl || (this.baseUrl && `/api/${this.baseUrl}/SwapSort`);
+        if (!url) {
+            console.log("交换排序Url未设置");
+            return;
+        }
+        util.form.submit({
+            url: url,
+            data: ids,
+            httpMethod: HttpMethod.Post,
+            button: button,
+            showMessage: false,
+            handler: handler
+        });
+    }
+
+    /**
+     * 排序
+     */
+    private sort(nodes) {
+        nodes && nodes.sort((a, b) => (a.data.sortId === undefined || b.data.sortId === undefined) ? 0 : a.data.sortId - b.data.sortId);
+    }
+
+    /**
+     * 修正错误
+     * @param parent 父节点
+     * @param url 修正Url
+     */
+    fix(parent, button?, handler?: () => void, url?: string) {
+        url = url || this.fixUrl || (this.baseUrl && `/api/${this.baseUrl}/fix`);
+        let parentId = this.getId(parent);
+        if (typeof parent === "string")
+            parent = this.getById(parent);
+        let param = util.helper.clone(this.queryParam);
+        param.parentId = parentId;
+        util.form.submit({
+            url: url,
+            data: param,
+            httpMethod: HttpMethod.Post,
+            button: button,
+            showMessage: false,
+            handler: () => {
+                if (parent === null) {
+                    this.refreshRoots(handler, button);
+                    return;
+                }
+                this.refreshChildren(parent, handler, button);
+            }
+        });
     }
 
     /**
@@ -454,6 +874,8 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
      * 表头主复选框的选中状态
      */
     isMasterChecked() {
+        if (!this.dataSource || this.dataSource.length === 0)
+            return false;
         if (!this.selection || this.selection.length === 0)
             return false;
         let length = this.getNodesLength(this.dataSource);
@@ -486,25 +908,34 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
     /**
      * 获取所有下级节点
      */
-    private getChildNodes(treeNodes: TreeNode[]) {
+    private getChildNodes(treeNodes: T[]) {
         let nodes = this.getAllNodes(treeNodes);
         nodes.splice(0, treeNodes.length);
         return nodes;
     }
 
     /**
-     * 复选框的确定状态
+     * 复选框的中间状态
      */
-    isIndeterminate(treeNode: TreeNode) {
+    isIndeterminate(treeNode: T) {
+        if (!this.dataSource || this.dataSource.length === 0)
+            return false;
         if (!this.selection || this.selection.length === 0)
             return false;
-        if (!treeNode) {
-            let length = this.getNodesLength(this.dataSource);
-            return this.selection.length !== length;
-        }
+        if (!treeNode)
+            return this.isIndeterminateForNodes(this.dataSource);
         if (!treeNode.children || treeNode.children.length === 0)
             return false;
         let nodes = this.getChildNodes([treeNode]);
+        return this.isIndeterminateForNodes(nodes);
+    }
+
+    /**
+     * 复选框的中间状态
+     */
+    private isIndeterminateForNodes(nodes: TreeNode[]) {
+        if (!nodes || nodes.length === 0)
+            return false;
         if (nodes.every(node => this.isSelected(node)))
             return false;
         return nodes.some(node => this.isSelected(node));
@@ -522,33 +953,19 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
                 return;
             }
         }
-
+        this.selectedNode = node;
+        this.onClickRow.emit({ originalEvent: event, node: node });
         if (this.selectionMode) {
             if (node.selectable === false) {
                 return;
             }
-
             let metaSelection = this.rowTouched ? false : this.metaKeySelection;
             let index = this.findIndexInSelection(node);
             let selected = (index >= 0);
 
             if (this.isCheckboxSelectionMode()) {
-                if (selected) {
-                    this.propagateSelectionDown(node, false);
-                    if (node.parent) {
-                        this.propagateSelectionUp(node.parent, false);
-                    }
-                    this.selectionChange.emit(this.selection);
-                    this.onNodeUnselect.emit({ originalEvent: event, node: node });
-                }
-                else {
-                    this.propagateSelectionDown(node, true);
-                    if (node.parent) {
-                        this.propagateSelectionUp(node.parent, true);
-                    }
-                    this.selectionChange.emit(this.selection);
-                    this.onNodeSelect.emit({ originalEvent: event, node: node });
-                }
+                if (this.checkOnClickRow)
+                    this.selectCheckboxs(event, node, selected);
             }
             else {
                 if (metaSelection) {
@@ -569,39 +986,78 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
                         if (this.isSingleSelectionMode()) {
                             this.selectionChange.emit(node);
                         }
-                        else if (this.isMultipleSelectionMode()) {
-                            this.selection = (!metaKey) ? [] : this.selection || [];
-                            this.selection = [...this.selection, node];
-                            this.selectionChange.emit(this.selection);
-                        }
-
                         this.onNodeSelect.emit({ originalEvent: event, node: node });
                     }
                 }
                 else {
                     if (this.isSingleSelectionMode()) {
-                        if (!this.isLeaf(node))
-                            return;
-                        this.selection = new Array<T>(node);
-                        this.onNodeSelect.emit({ originalEvent: event, node: node });
+                        if (this.checkOnClickRow)
+                            this.selectRadio(event, node);
+                        return;
+                    }
+                    if (selected) {
+                        this.selection = this.selection.filter((val, i) => i != index);
+                        this.onNodeUnselect.emit({ originalEvent: event, node: node });
                     }
                     else {
-                        if (selected) {
-                            this.selection = this.selection.filter((val, i) => i != index);
-                            this.onNodeUnselect.emit({ originalEvent: event, node: node });
-                        }
-                        else {
-                            this.selection = [...this.selection || [], node];
-                            this.onNodeSelect.emit({ originalEvent: event, node: node });
-                        }
+                        this.selection = [...this.selection || [], node];
+                        this.onNodeSelect.emit({ originalEvent: event, node: node });
                     }
-
                     this.selectionChange.emit(this.selection);
                 }
             }
         }
 
         this.rowTouched = false;
+    }
+
+    /**
+     * 选中复选框
+     */
+    selectCheckboxs(event, node: T, selected?: boolean) {
+        selected = selected || this.isSelected(node);
+        this.checkCheckboxs(node, selected);
+        this.distinctSelection();
+        this.selectionChange.emit(this.selection);
+        this.onNodeSelect.emit({ originalEvent: event, node: node });
+    }
+
+    /**
+     * 选中复选框
+     */
+    private checkCheckboxs(node: T, selected?: boolean) {
+        if (selected) {
+            this.propagateSelectionDown(node, false);
+            if (node.parent)
+                this.propagateSelectionUp(node.parent, false);
+            return;
+        }
+        this.propagateSelectionDown(node, true);
+        if (node.parent)
+            this.propagateSelectionUp(node.parent, true);
+    }
+
+    /**
+     * 去重复
+     * @param nodes 节点列表
+     */
+    distinctSelection() {
+        if (!this.selection || this.selection.length === undefined)
+            return;
+        let distinct = util.helper.distinct(this.selection, (t: any) => t.data && t.data.id);
+        util.helper.clear(this.selection);
+        util.helper.addToArray(this.selection, distinct);
+    }
+
+    /**
+     * 选中单选框
+     */
+    selectRadio(event, node: T) {
+        if (!this.showRadio(node))
+            return;
+        this.selection = new Array<T>(node);
+        this.onNodeSelect.emit({ originalEvent: event, node: node });
+        this.selectionChange.emit(this.selection);
     }
 
     onRowTouchEnd() {
@@ -617,11 +1073,6 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
                 if (this.isSingleSelectionMode()) {
                     this.selection = node;
                 }
-                else if (this.isMultipleSelectionMode()) {
-                    this.selection = [node];
-                    this.selectionChange.emit(this.selection);
-                }
-
                 this.selectionChange.emit(this.selection);
             }
 
@@ -630,23 +1081,32 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
         }
     }
 
-    findIndexInSelection(node: TreeNode) {
-        let index: number = -1;
-
-        if (this.selectionMode && this.selection) {
-            if (this.isSingleSelectionMode()) {
-                if (this.selection && this.selection.length > 0)
-                    index = (this.selection[0] == node) ? 0 : - 1;
-            } else {
-                for (let i = 0; i < this.selection.length; i++) {
-                    if (this.selection[i] == node) {
-                        index = i;
-                        break;
-                    }
-                }
-            }
+    findIndexInSelection(node) {
+        let index = -1;
+        if (!this.selectionMode || !this.selection)
+            return index;
+        if (this.selection.length && this.selection.length === 0)
+            return index;
+        if (this.isSingleSelectionMode())
+            return this.getSelectionIndex(this.selection[0], node);
+        for (let i = 0; i < this.selection.length; i++) {
+            if (this.getSelectionIndex(this.selection[i], node) !== -1)
+                return i;
         }
+        return index;
+    }
 
+    /**
+     * 获取选择索引
+     */
+    private getSelectionIndex(selectionNode, node) {
+        let index = -1;
+        if (!selectionNode || !node || !node.data)
+            return index;
+        if (selectionNode.data)
+            return (selectionNode.data.id === node.data.id) ? 0 : - 1;
+        if (selectionNode.id)
+            return (selectionNode.id === node.data.id) ? 0 : - 1;
         return index;
     }
 
@@ -711,10 +1171,6 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
         return this.selectionMode && this.selectionMode == 'single';
     }
 
-    isMultipleSelectionMode() {
-        return this.selectionMode && this.selectionMode == 'multiple';
-    }
-
     isCheckboxSelectionMode() {
         return this.selectionMode && this.selectionMode == 'checkbox';
     }
@@ -734,12 +1190,26 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
     isLeaf(node) {
         return node.leaf == false ? false : !(node.children && node.children.length);
     }
+
+    showRadio(node) {
+        if (this.leafOnly && !this.isLeaf(node))
+            return false;
+        return true;
+    }
+
+    /**
+     * 选中行
+     * @param node 节点
+     */
+    selectRow(node) {
+        this.selectedNode = node;
+    }
 }
 
 @Component({
     selector: '[pTreeRow]',
     template: `
-        <div [class]="node.styleClass" [ngClass]="{'ui-treetable-row': true, 'ui-treetable-row-selectable':true}">                   
+        <div [class]="node.styleClass" [ngClass]="{'ui-treetable-row': true, 'ui-treetable-row-selectable':true,'ui-state-highlight':isRowSelected()}">                   
             <td *ngFor="let col of treeTable.columns; let i=index" [ngStyle]="col.bodyStyle||col.style" [class]="col.bodyStyleClass||col.styleClass" 
                 (click)="onRowClick($event,i)" (dblclick)="rowDblClick($event)" (touchend)="onRowTouchEnd()" (contextmenu)="onRowRightClick($event)">
                 <a href="#" *ngIf="i == treeTable.toggleColumnIndex" class="ui-treetable-toggler fa fa-fw ui-clickable" [ngClass]="node.expanded ? treeTable.expandedIcon : treeTable.collapsedIcon"
@@ -748,11 +1218,11 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
                     [title]="node.expanded ? labelCollapse : labelExpand">
                 </a>
                 <mat-checkbox *ngIf="treeTable.selectionMode == 'checkbox' && i==0" [checked]="isSelected()" 
-                    (change)="onRowClick()" (click)="$event.stopPropagation()" [indeterminate]="isIndeterminate()"></mat-checkbox>                
-                <mat-radio-button name="radioTreeTable" (change)="onRowClick()" (click)="$event.stopPropagation()" [ngStyle]="{'margin-left':-30 + 'px'}" 
-                    *ngIf="treeTable.selectionMode == 'single' && i==0 && isLeaf()" [checked]="isSelected()"></mat-radio-button>                
+                    (change)="clickCheckBox($event)" (click)="$event.stopPropagation()" [indeterminate]="isIndeterminate()"></mat-checkbox>                
+                <mat-radio-button name="radioTreeTable" (change)="clickRadio($event)" (click)="$event.stopPropagation()" [ngStyle]="getRadioStyle()" 
+                    *ngIf="treeTable.selectionMode == 'single' && i==0 && showRadio()" [checked]="isSelected()"></mat-radio-button>                
                 <span *ngIf="!col.template">{{resolveFieldData(node.data,col.field)}}</span>
-                <ng-container *ngTemplateOutlet="col.template; context: {$implicit: col, rowData: node}"></ng-container>
+                <ng-container *ngTemplateOutlet="col.template; context: {$implicit: col, rowData: node,index:index,first:first,last:last}"></ng-container>
             </td>
         </div>
         <div *ngIf="node.children && node.expanded" class="ui-treetable-row" style="display:table-row">
@@ -764,11 +1234,14 @@ export class TreeTable<T extends TreeNode & ITreeNode> implements AfterContentIn
         </div>
     `
 })
-export class UITreeRow<T extends TreeNode & ITreeNode> implements OnInit {
+export class UITreeRow<T extends TreeViewModel & TreeNode> implements OnInit {
+    @Input() index: number;
+    @Input() first: boolean;
+    @Input() last: boolean;
 
     @Input() node: T;
 
-    @Input() parentNode: TreeNode;
+    @Input() parentNode: T;
 
     @Input() level: number = 0;
 
@@ -776,17 +1249,27 @@ export class UITreeRow<T extends TreeNode & ITreeNode> implements OnInit {
 
     @Input() labelCollapse: string = "Collapse";
 
-    constructor( @Inject(forwardRef(() => TreeTable)) public treeTable: TreeTable<T>) { }
+    constructor(@Inject(forwardRef(() => TreeTable)) public treeTable: TreeTable<T>) { }
 
     ngOnInit() {
         this.node.parent = this.parentNode;
+    }
+
+    clickCheckBox(event) {
+        this.treeTable.selectCheckboxs(event, this.node);
+        this.treeTable.onCheck.emit({ originalEvent: event, node: this.node });
+    }
+
+    clickRadio(event) {
+        this.treeTable.selectRadio(event, this.node);
+        this.treeTable.onCheck.emit({ originalEvent: event, node: this.node });
     }
 
     toggle(event: Event) {
         if (this.node.expanded)
             this.treeTable.onNodeCollapse.emit({ originalEvent: event, node: this.node });
         else {
-            this.treeTable.loadChild(this.node);
+            this.loadChildren();
             this.treeTable.onNodeExpand.emit({ originalEvent: event, node: this.node });
         }
 
@@ -796,13 +1279,32 @@ export class UITreeRow<T extends TreeNode & ITreeNode> implements OnInit {
         event.stopPropagation();
     }
 
+    loadChildren() {
+        this.treeTable.loadChildren(this.node);
+    }
+
+    showRadio() {
+        if (this.treeTable.leafOnly && !this.isLeaf())
+            return false;
+        return true;
+    }
+
+    getRadioStyle() {
+        if (this.treeTable.leafOnly)
+            return { 'margin-left': '-30px' };
+        return { 'margin-left': this.isLeaf() ? '-4px' : '-4px' };
+    }
+
     isLeaf() {
         return this.node.leaf == false ? false : !(this.node.children && this.node.children.length);
     }
 
     isSelected() {
-        var result = this.treeTable.isSelected(this.node);
-        return result;
+        return this.treeTable.isSelected(this.node);
+    }
+
+    isRowSelected() {
+        return this.treeTable.selectedNode === this.node;
     }
 
     /**
@@ -812,7 +1314,7 @@ export class UITreeRow<T extends TreeNode & ITreeNode> implements OnInit {
         return this.treeTable.isIndeterminate(this.node);
     }
 
-    onRowClick(event: MouseEvent, index: number) {
+    onRowClick(event: MouseEvent) {
         this.treeTable.onRowClick(event, this.node);
     }
 

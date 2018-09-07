@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Razor.TagHelpers;
+using Util.Ui.Angular.TagHelpers;
 using Util.Ui.Configs;
 using Util.Ui.Enums;
 using Util.Ui.Material.Tabs.Renders;
@@ -7,10 +8,10 @@ using Util.Ui.TagHelpers;
 
 namespace Util.Ui.Material.Tabs.TagHelpers {
     /// <summary>
-    /// 导航选项卡
+    /// 导航选项卡，应放在 util-nav-tabs 标签中
     /// </summary>
     [HtmlTargetElement( "util-nav-tab",ParentTag = "util-nav-tabs" )]
-    public class TabLinkTagHelper : TagHelperBase {
+    public class TabLinkTagHelper : AngularTagHelperBase {
         /// <summary>
         /// 路由链接
         /// </summary>

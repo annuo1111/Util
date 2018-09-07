@@ -8,6 +8,7 @@ describe("util.helper", () => {
     it("isEmpty", () => {
         expect(util.helper.isEmpty(undefined)).toBeTruthy("undefined");
         expect(util.helper.isEmpty(null)).toBeTruthy("null");
+        expect(util.helper.isEmpty({})).toBeTruthy("{}");
         expect(util.helper.isEmpty("")).toBeTruthy("''");
         expect(util.helper.isEmpty("  ")).toBeTruthy("'  '");
         expect(util.helper.isEmpty(0)).toBeFalsy("0");
@@ -36,6 +37,27 @@ describe("util.helper", () => {
         expect(util.helper.toNumber("8.99999999999999999", 2, true)).toEqual(8.99);
         expect(util.helper.toNumber(1.567, 1, true)).toEqual(1.5);
         expect(util.helper.isNumber(util.helper.toNumber("8.99999999999999999", 2, true))).toBeTruthy();
+    });
+    it("toBool", () => {
+        expect(util.helper.toBool(true)).toBeTruthy(1);        
+        expect(util.helper.toBool("true")).toBeTruthy(2);
+        expect(util.helper.toBool("TRUE")).toBeTruthy(3);
+        expect(util.helper.toBool(1)).toBeTruthy(4);
+        expect(util.helper.toBool("1")).toBeTruthy(5);
+        expect(util.helper.toBool("yes")).toBeTruthy(6);
+        expect(util.helper.toBool("YES")).toBeTruthy(7);
+        expect(util.helper.toBool("ok")).toBeTruthy(8);
+        expect(util.helper.toBool("OK")).toBeTruthy(9);
+        expect(util.helper.toBool("是")).toBeTruthy(10);
+        expect(util.helper.toBool(undefined)).toBeFalsy(11);
+        expect(util.helper.toBool(null)).toBeFalsy(12);
+        expect(util.helper.toBool("")).toBeFalsy(13);
+        expect(util.helper.toBool(0)).toBeFalsy(14);        
+        expect(util.helper.toBool("0")).toBeFalsy(15);
+        expect(util.helper.toBool(false)).toBeFalsy(16);
+        expect(util.helper.toBool("false")).toBeFalsy(17);
+        expect(util.helper.toBool("FALSE")).toBeFalsy(18);        
+        expect(util.helper.toBool("a")).toBeFalsy(19);
     });
     it("isEmptyArray", () => {
         expect(util.helper.isEmptyArray(undefined)).toBeFalsy();
@@ -118,9 +140,50 @@ describe("util.helper", () => {
         expect(result[0]).toBe("a");
         expect(result[1]).toBe("b");
     });
+    it("first", () => {
+        let input = ['a','b','c'];
+        let result = util.helper.first(input);
+        expect(result).toBe('a');
+    });
+    it("except_1", () => {
+        let source = ['a', 'b'];
+        let target = ['a', 'c'];
+        let result = util.helper.except(source, target);
+        expect(result.length).toBe(1);
+        expect(result[0]).toBe('b');
+    });
+    it("except_2", () => {
+        let source = new Array<Test>();
+        source.push(new Test(1,"a"), new Test(2,"b"));
+        let target = new Array<Test>();
+        target.push(new Test(1, "a"), new Test(3, "c"));
+        let result = util.helper.except(source, target, t => t.id);
+        expect(result.length).toBe(1);
+        expect(result[0].id).toBe(2);
+        expect(result[0].name).toBe("b");
+    });
+    it("groupBy_1", () => {
+        let source = new Array<Test>();
+        source.push(new Test(1, "a"), new Test(1, "b"), new Test(2, "c"), new Test(2, "d"));
+        let result = util.helper.groupBy(source, t => t.id);
+        expect(result.size).toBe(2);
+        expect(result.get("1")[0].id).toBe(1);
+        expect(result.get("2")[0].id).toBe(2);
+        expect(result.get("1")[0].name).toBe("a");
+        expect(result.get("1")[1].name).toBe("b");
+        expect(result.get("2")[0].name).toBe("c");
+        expect(result.get("2")[1].name).toBe("d");
+    });
+    it("groupBy_2", () => {
+        let source = new Array<Test>();
+        source.push(new Test(1, "a"), new Test(1, "b"), new Test("", "c"), new Test("", "d"));
+        let result = util.helper.groupBy(source, t => t.id);
+        expect(result.size).toBe(1);
+    });
 });
 
 class Test {
-    name: string;
+    constructor(public id?: number|string,public name?: string) {
+    }
     test: Test;
 }

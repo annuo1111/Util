@@ -3,7 +3,6 @@ using Util.Ui.Configs;
 using Util.Ui.Material.Enums;
 using Util.Ui.Material.Forms.Configs;
 using Util.Ui.Material.Forms.Renders;
-using Util.Ui.Material.Internal;
 using Util.Ui.Renders;
 using Util.Ui.TagHelpers;
 
@@ -41,6 +40,30 @@ namespace Util.Ui.Material.Forms.TagHelpers {
         /// 最大长度
         /// </summary>
         public string MaxLength { get; set; }
+        /// <summary>
+        /// 最小值
+        /// </summary>
+        public string Min { get; set; }
+        /// <summary>
+        /// 最小值错误消息
+        /// </summary>
+        public string MinMessage { get; set; }
+        /// <summary>
+        /// 最大值
+        /// </summary>
+        public string Max { get; set; }
+        /// <summary>
+        /// 最大值错误消息
+        /// </summary>
+        public string MaxMessage { get; set; }
+        /// <summary>
+        /// 正则表达式
+        /// </summary>
+        public string Regex { get; set; }
+        /// <summary>
+        /// 正则表达式错误消息
+        /// </summary>
+        public string RegexMessage { get; set; }
 
         /// <summary>
         /// 获取渲染器

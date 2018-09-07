@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Razor.TagHelpers;
+using Util.Ui.Angular.TagHelpers;
 using Util.Ui.Configs;
 using Util.Ui.Extensions;
 using Util.Ui.Material.Enums;
@@ -14,7 +15,7 @@ namespace Util.Ui.Material.Tables.TagHelpers {
     /// 表格列定义，该标签应放在 util-table 中
     /// </summary>
     [HtmlTargetElement( "util-table-column", ParentTag = "util-table" )]
-    public class ColumnTagHelper : TagHelperBase {
+    public class ColumnTagHelper : AngularTagHelperBase {
         /// <summary>
         /// 配置
         /// </summary>
@@ -104,6 +105,8 @@ namespace Util.Ui.Material.Tables.TagHelpers {
         private string GetColumn() {
             if( _config.Context.GetValueFromAttributes<TableColumnType?>( UiConst.Type ) == TableColumnType.Checkbox )
                 return "selectCheckbox";
+            if( _config.Context.GetValueFromAttributes<TableColumnType?>( UiConst.Type ) == TableColumnType.Radio )
+                return "selectRadio";
             if( _config.Context.GetValueFromAttributes<TableColumnType?>( UiConst.Type ) == TableColumnType.LineNumber )
                 return "lineNumber";
             return _config.GetValue<string>( UiConst.Column );

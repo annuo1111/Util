@@ -1,15 +1,14 @@
 ﻿using System.Linq;
-using Util.Ui.Angular;
+using Util.Ui.Angular.Renders;
 using Util.Ui.Builders;
 using Util.Ui.Configs;
 using Util.Ui.FlexLayout.Enums;
-using Util.Ui.Renders;
 
 namespace Util.Ui.FlexLayout.Renders {
     /// <summary>
     /// 浮动布局项渲染器
     /// </summary>
-    public class LayoutItemRender : RenderBase {
+    public class LayoutItemRender : AngularRenderBase {
         /// <summary>
         /// 配置
         /// </summary>
@@ -42,7 +41,6 @@ namespace Util.Ui.FlexLayout.Renders {
             ConfigOffset( builder );
             ConfigAlign( builder );
             ConfigFill( builder );
-            ConfigAngular( builder );
             ConfigContent( builder );
         }
 
@@ -85,14 +83,6 @@ namespace Util.Ui.FlexLayout.Renders {
         private void ConfigFill( TagBuilder builder ) {
             if( _config.GetValue<bool?>( UiConst.Fill ) == true )
                 builder.AddAttribute( "fxFlexFill" );
-        }
-
-        /// <summary>
-        /// 配置angular属性
-        /// </summary>
-        private void ConfigAngular( TagBuilder builder ) {
-            builder.AddAttribute( "*ngIf", _config.GetValue( UiConst.If ) );
-            builder.AddAttribute( "*ngFor", _config.GetValue( AngularConst.NgFor ) );
         }
     }
 }

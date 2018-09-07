@@ -4,6 +4,7 @@
 //================================================
 import { HttpClient, HttpHeaders, HttpParams, HttpErrorResponse } from '@angular/common/http';
 import { IocHelper as ioc } from './ioc-helper';
+import { formatDate } from '../common/helper';
 import { uuid } from '../common/helper';
 
 /**
@@ -131,13 +132,25 @@ export class HttpRequest<T> {
         if (typeof data === "object") {
             for (let key in data) {
                 if (data.hasOwnProperty(key))
-                    this.parameters = this.parameters.append(key, data[key]);
+                    this.parameters = this.parameters.append(key, this.getValue(data[key]));
             }
             return this;
         }
         if (typeof data === "string" && value)
             this.parameters = this.parameters.append(data, value);
         return this;
+    }
+
+    /**
+     * 获取值
+     * @param data 数据
+     */
+    private getValue(data): string {
+        if (!data)
+            return data;
+        if (data.getYear)
+            return formatDate(data, "YYYY-MM-DD HH:mm:ss");
+        return data;
     }
 
     /**
@@ -151,6 +164,19 @@ export class HttpRequest<T> {
         if (beforeHandler && beforeHandler() === false)
             return;
         this.request().subscribe(handler, errorHandler, completeHandler);
+    }
+
+    /**
+     * 处理响应
+     * @param handler 响应处理函数
+     * @param errorHandler 错误处理函数
+     * @param beforeHandler 发送前处理函数，返回false则取消发送
+     * @param completeHandler 请求完成处理函数
+     */
+    async handleAsync(handler: (value: T) => void, errorHandler?: (error: HttpErrorResponse) => void, beforeHandler?: () => boolean, completeHandler?: () => void): Promise<void> {
+        if (beforeHandler && beforeHandler() === false)
+            return;
+        return await this.request().toPromise().then(handler).catch(errorHandler).then(completeHandler);
     }
 
     /**

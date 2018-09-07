@@ -1,4 +1,4 @@
-﻿using Util.Applications;
+﻿using Util.Applications.Trees;
 
 namespace Util.Ui.Tests.Samples {
     /// <summary>
@@ -21,6 +21,10 @@ namespace Util.Ui.Tests.Samples {
         /// 级数
         /// </summary>
         public int? Level { get; set; }
+        /// <summary>
+        /// 是否展开
+        /// </summary>
+        public bool? Expanded { get; set; }
         /// <summary>
         /// 名称
         /// </summary>

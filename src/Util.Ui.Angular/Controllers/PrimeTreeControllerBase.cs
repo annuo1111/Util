@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Util.Applications;
 using Util.Applications.Dtos;
 using Util.Applications.Trees;
 using Util.Datas.Queries.Trees;
@@ -53,16 +52,33 @@ namespace Util.Ui.Controllers {
         }
 
         /// <summary>
+        /// 获取单个树型节点
+        /// </summary>
+        /// <remarks> 
+        /// 调用范例: 
+        /// GET
+        /// /api/role/tree?id=1
+        /// </remarks>
+        /// <param name="id">标识</param>
+        [HttpGet( "tree" )]
+        public virtual async Task<IActionResult> GetTreeNodeAsync( string id ) {
+            var result = await _service.GetByIdAsync( id );
+            return Success( new PrimeTreeNode<TDto> { Data = result } );
+        }
+
+        /// <summary>
         /// 查询
         /// </summary>
         /// <remarks> 
         /// 调用范例: 
         /// GET
-        /// /api/customer?name=a
+        /// /api/role?name=a
         /// </remarks>
         /// <param name="query">查询参数</param>
         [HttpGet]
-        public virtual async Task<IActionResult> Query( TQuery query ) {
+        public virtual async Task<IActionResult> QueryAsync( TQuery query ) {
+            if( query == null )
+                throw new ArgumentNullException( nameof( query ) );
             QueryBefore( query );
             ProcessParam( query );
             PagerList<PrimeTreeNode<TDto>> result;
@@ -92,8 +108,10 @@ namespace Util.Ui.Controllers {
         /// </summary>
         /// <param name="query">查询参数</param>
         protected virtual void ProcessParam( TQuery query ) {
+            if( query.Order.IsEmpty() )
+                query.Order = "SortId";
             query.Path = null;
-            if ( GetOperation( query ) == LoadOperation.LoadChild )
+            if( GetOperation( query ) == LoadOperation.LoadChild )
                 return;
             query.ParentId = default( TParentId );
         }
@@ -102,10 +120,10 @@ namespace Util.Ui.Controllers {
         /// 获取操作
         /// </summary>
         protected LoadOperation? GetOperation( TQuery query ) {
-            var operation = Util.Helpers.Enum.Parse<LoadOperation?>( HttpContext.Request.Query["operation"] );
-            if ( operation == LoadOperation.LoadChild )
+            var operation = HttpContext.Request.Query["operation"].SafeString();
+            if( operation.ToLower() == "loadchild" )
                 return LoadOperation.LoadChild;
-            if ( query.IsSearch() )
+            if( query.IsSearch() )
                 return LoadOperation.Search;
             return LoadOperation.FirstLoad;
         }
@@ -131,10 +149,24 @@ namespace Util.Ui.Controllers {
         /// 转换为分页列表
         /// </summary>
         protected virtual PagerList<PrimeTreeNode<TDto>> ToPagerList( List<TDto> data, TQuery query, bool isAsync = false ) {
-            var primeResult = data.ToPrimeResult( isAsync );
+            var primeResult = ToPrimeResult( data,isAsync );
             query.TotalCount = primeResult.Count;
             var result = primeResult.Skip( query.GetSkipCount() ).Take( query.PageSize );
             return new PagerList<PrimeTreeNode<TDto>>( query, result );
+        }
+
+        /// <summary>
+        /// 转换为树节点列表
+        /// </summary>
+        private List<PrimeTreeNode<TDto>> ToPrimeResult( IEnumerable<TDto> data, bool async = false ) {
+            return data.ToPrimeResult( async, IsAllExpand() );
+        }
+
+        /// <summary>
+        /// 所有节点是否全部展开
+        /// </summary>
+        protected virtual bool IsAllExpand() {
+            return false;
         }
 
         /// <summary>
@@ -143,7 +175,7 @@ namespace Util.Ui.Controllers {
         protected async Task<PagerList<PrimeTreeNode<TDto>>> AsyncFirstLoad( TQuery query ) {
             query.Level = 1;
             var result = await _service.PagerQueryAsync( query );
-            return result.Convert( result.Data.ToPrimeResult( true ) );
+            return result.Convert( ToPrimeResult( result.Data,true ) );
         }
 
         /// <summary>
@@ -164,20 +196,42 @@ namespace Util.Ui.Controllers {
         /// 异步加载子节点
         /// </summary>
         protected virtual async Task<List<PrimeTreeNode<TDto>>> AsyncLoadChildren( TQuery query ) {
-            var queryParam = new TQuery { ParentId = query.ParentId };
+            var queryParam = await GetAsyncLoadChildrenQuery( query );
             var result = await _service.QueryAsync( queryParam );
-            return result.ToPrimeResult( true );
+            return ToPrimeResult( result, true );
+        }
+
+        /// <summary>
+        /// 获取异步加载子节点查询参数
+        /// </summary>
+        /// <param name="query">查询参数</param>
+        protected virtual Task<TQuery> GetAsyncLoadChildrenQuery( TQuery query ) {
+            query.Level = null;
+            query.Path = null;
+            return Task.FromResult( query );
         }
 
         /// <summary>
         /// 同步加载子节点
         /// </summary>
         protected virtual async Task<List<PrimeTreeNode<TDto>>> SyncLoadChildren( TQuery query ) {
-            var parent = await _service.GetByIdAsync( query.ParentId );
-            var queryParam = new TQuery { Path = parent.Path };
+            var parentId = query.ParentId.SafeString();
+            var queryParam = await GetSyncLoadChildrenQuery( query );
             var result = await _service.QueryAsync( queryParam );
-            result.RemoveAll( t => t.Id == query.ParentId.SafeString() );
-            return result.ToPrimeResult();
+            result.RemoveAll( t => t.Id == parentId );
+            return ToPrimeResult( result );
+        }
+
+        /// <summary>
+        /// 获取同步加载子节点查询参数
+        /// </summary>
+        /// <param name="query">查询参数</param>
+        protected virtual async Task<TQuery> GetSyncLoadChildrenQuery( TQuery query ) {
+            var parent = await _service.GetByIdAsync( query.ParentId );
+            query.Path = parent.Path;
+            query.Level = null;
+            query.ParentId = default(TParentId);
+            return query;
         }
 
         /// <summary>
@@ -185,35 +239,10 @@ namespace Util.Ui.Controllers {
         /// </summary>
         protected virtual async Task<PagerList<PrimeTreeNode<TDto>>> Search( TQuery query ) {
             var data = await _service.QueryAsync( query );
-            AddParents( data );
+            var ids = data.GetMissingParentIds();
+            var list = await _service.GetByIdsAsync( ids.Join() );
+            data.AddRange( list );
             return ToPagerList( data, query, true );
-        }
-
-        /// <summary>
-        /// 添加父节点
-        /// </summary>
-        protected void AddParents( List<TDto> result ) {
-            var ids = new List<string>();
-            foreach( var node in result )
-                AddParentIds( ids, node );
-            foreach( var node in result ) {
-                if( ids.Contains( node.Id ) )
-                    ids.Remove( node.Id );
-            }
-            var list = _service.GetByIds( ids.Join() );
-            result.AddRange( list );
-        }
-
-        /// <summary>
-        /// 添加父节点标识
-        /// </summary>
-        protected void AddParentIds( List<string> ids, TDto node ) {
-            var parentIds = _service.GetParentIdsFromPath( node );
-            parentIds.ForEach( id => {
-                if( ids.Contains( id ) )
-                    return;
-                ids.Add( id );
-            } );
         }
     }
 }

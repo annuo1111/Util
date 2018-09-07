@@ -1,18 +1,17 @@
-﻿using System.IO;
-using System.Text.Encodings.Web;
-using Microsoft.AspNetCore.Mvc.ViewFeatures;
+﻿using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Util.Ui.Angular;
+using Util.Ui.Angular.Renders;
 using Util.Ui.Builders;
 using Util.Ui.Configs;
 using Util.Ui.Material.Enums;
 using Util.Ui.Material.Forms.Builders;
 using Util.Ui.Material.Forms.Resolvers;
-using Util.Ui.Renders;
 
 namespace Util.Ui.Material.Forms.Renders {
     /// <summary>
     /// 复选框渲染器
     /// </summary>
-    public class CheckBoxRender : RenderBase {
+    public class CheckBoxRender : AngularRenderBase {
         /// <summary>
         /// 配置
         /// </summary>
@@ -60,6 +59,7 @@ namespace Util.Ui.Material.Forms.Renders {
             ConfigRequired( builder );
             ConfigEvents( builder );
             ConfigChecked( builder );
+            ConfigStandalone( builder );
         }
 
         /// <summary>
@@ -67,6 +67,7 @@ namespace Util.Ui.Material.Forms.Renders {
         /// </summary>
         private void ConfigName( TagBuilder builder ) {
             builder.AddAttribute( UiConst.Name, _config.GetValue( UiConst.Name ) );
+            builder.AddAttribute( "[name]", _config.GetValue( AngularConst.BindName ) );
         }
 
         /// <summary>
@@ -74,6 +75,9 @@ namespace Util.Ui.Material.Forms.Renders {
         /// </summary>
         private void ConfigLabel( TagBuilder builder ) {
             builder.SetContent( _config.GetValue( UiConst.Label ) );
+            var bindLabel = _config.GetValue( AngularConst.BindLabel );
+            if( !bindLabel.IsEmpty() )
+                builder.SetContent( $"{{{{{bindLabel}}}}}" );
             builder.AddAttribute( "labelPosition", _config.GetValue<XPosition?>( UiConst.Position )?.Description() );
         }
 
@@ -124,6 +128,14 @@ namespace Util.Ui.Material.Forms.Renders {
         /// </summary>
         private void ConfigChecked( TagBuilder builder ) {
             builder.AddAttribute( "[checked]", _config.GetValue( UiConst.Checked ) );
+        }
+
+        /// <summary>
+        /// 配置独立
+        /// </summary>
+        private void ConfigStandalone( TagBuilder builder ) {
+            if( _config.GetValue<bool>( UiConst.Standalone ) )
+                builder.AddAttribute( "[ngModelOptions]", "{standalone: true}" );
         }
     }
 }

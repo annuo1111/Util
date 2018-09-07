@@ -1,15 +1,15 @@
 ﻿using System.IO;
 using System.Text.Encodings.Web;
+using Util.Ui.Angular.Renders;
 using Util.Ui.Builders;
 using Util.Ui.Configs;
 using Util.Ui.Material.Tables.Builders;
-using Util.Ui.Renders;
 
 namespace Util.Ui.Material.Tables.Renders {
     /// <summary>
     /// 行渲染器
     /// </summary>
-    public class RowRender : RenderBase {
+    public class RowRender : AngularRenderBase {
         /// <summary>
         /// 配置
         /// </summary>
@@ -34,11 +34,11 @@ namespace Util.Ui.Material.Tables.Renders {
         }
 
         /// <summary>
-        /// 渲染行头
+        /// 渲染表头
         /// </summary>
         private void RenderHeaderRow( TextWriter writer, HtmlEncoder encoder ) {
             var headerRowBuilder = new HeaderRowBuilder();
-            headerRowBuilder.AddColumns( _config.GetValue( UiConst.Columns ) );
+            headerRowBuilder.AddColumns( _config.GetValue( UiConst.Columns ), _config.GetValue( UiConst.StickyHeader ).ToBoolOrNull() );
             headerRowBuilder.WriteTo( writer, encoder );
         }
 

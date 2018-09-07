@@ -1,7 +1,5 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Text.Encodings.Web;
-using Util.Helpers;
 using Util.Ui.Enums;
 using Util.Ui.Extensions;
 using Util.Ui.Material.Enums;
@@ -79,6 +77,16 @@ namespace Util.Ui.Tests.Material.Forms {
         }
 
         /// <summary>
+        /// 测试添加绑定名称
+        /// </summary>
+        [Fact]
+        public void TestBindName() {
+            var result = new String();
+            result.Append( "<mat-textbox-wrapper [name]=\"a\"></mat-textbox-wrapper>" );
+            Assert.Equal( result.ToString(), GetResult( _component.BindName( "a" ) ) );
+        }
+
+        /// <summary>
         /// 测试禁用
         /// </summary>
         [Fact]
@@ -126,6 +134,16 @@ namespace Util.Ui.Tests.Material.Forms {
             var result = new String();
             result.Append( "<mat-textbox-wrapper placeholder=\"a\"></mat-textbox-wrapper>" );
             Assert.Equal( result.ToString(), GetResult( _component.Placeholder( "a" ) ) );
+        }
+
+        /// <summary>
+        /// 测试设置绑定占位提示
+        /// </summary>
+        [Fact]
+        public void TestBindPlaceholder() {
+            var result = new String();
+            result.Append( "<mat-textbox-wrapper [placeholder]=\"a\"></mat-textbox-wrapper>" );
+            Assert.Equal( result.ToString(), GetResult( _component.BindPlaceholder( "a" ) ) );
         }
 
         /// <summary>
@@ -259,6 +277,16 @@ namespace Util.Ui.Tests.Material.Forms {
         }
 
         /// <summary>
+        /// 测试正则表达式验证
+        /// </summary>
+        [Fact]
+        public void TestRegex() {
+            var result = new String();
+            result.Append( "<mat-textbox-wrapper patterMessage=\"b\" pattern=\"a\"></mat-textbox-wrapper>" );
+            Assert.Equal( result.ToString(), GetResult( _component.Regex( "a","b" ) ) );
+        }
+
+        /// <summary>
         /// 测试变更事件
         /// </summary>
         [Fact]
@@ -376,6 +404,36 @@ namespace Util.Ui.Tests.Material.Forms {
             var result = new String();
             result.Append( "<mat-textbox-wrapper [maxLength]=\"3\"></mat-textbox-wrapper>" );
             Assert.Equal( result.ToString(), GetResult( _component.MaxLength( 3 ) ) );
+        }
+
+        /// <summary>
+        /// 测试最小值验证
+        /// </summary>
+        [Fact]
+        public void TestMin() {
+            var result = new String();
+            result.Append( "<mat-textbox-wrapper minMessage=\"a\" [min]=\"3\"></mat-textbox-wrapper>" );
+            Assert.Equal( result.ToString(), GetResult( _component.Min( 3, "a" ) ) );
+        }
+
+        /// <summary>
+        /// 测试最大值验证
+        /// </summary>
+        [Fact]
+        public void TestMax() {
+            var result = new String();
+            result.Append( "<mat-textbox-wrapper maxMessage=\"a\" [max]=\"3\"></mat-textbox-wrapper>" );
+            Assert.Equal( result.ToString(), GetResult( _component.Max( 3,"a" ) ) );
+        }
+
+        /// <summary>
+        /// 测试独立
+        /// </summary>
+        [Fact]
+        public void TestStandalone() {
+            var result = new String();
+            result.Append( "<mat-textbox-wrapper [standalone]=\"true\"></mat-textbox-wrapper>" );
+            Assert.Equal( result.ToString(), GetResult( _component.Standalone() ) );
         }
 
         /// <summary>

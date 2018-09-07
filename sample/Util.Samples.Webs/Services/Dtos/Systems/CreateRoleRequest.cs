@@ -2,11 +2,13 @@
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.Serialization;
 using Util.Applications.Dtos;
+using Util.Ui.Attributes;
 
 namespace Util.Samples.Webs.Services.Dtos.Systems {
     /// <summary>
-    /// 创建角色请求参数
+    /// 创建角色参数
     /// </summary>
+    [Model("model")]
     public class CreateRoleRequest : RequestBase {
         /// <summary>
         /// 角色编码
@@ -25,25 +27,16 @@ namespace Util.Samples.Webs.Services.Dtos.Systems {
         [DataMember]
         public string Name { get; set; }
         /// <summary>
-        /// 角色类型
-        /// </summary>
-        [Required( ErrorMessage = "角色类型不能为空" )]
-        [StringLength( 80, ErrorMessage = "角色类型输入过长，不能超过80位" )]
-        [Display( Name = "角色类型" )]
-        [DataMember]
-        public string Type { get; set; }
-        /// <summary>
         /// 父编号
         /// </summary>
-        [Display( Name = "父编号" )]
         [DataMember]
         public Guid? ParentId { get; set; }
         /// <summary>
-        /// 排序号
+        /// 父级角色
         /// </summary>
-        [Display( Name = "排序号" )]
+        [Display( Name = "父级角色" )]
         [DataMember]
-        public int? SortId { get; set; }
+        public string ParentName { get; set; }
         /// <summary>
         /// 启用
         /// </summary>

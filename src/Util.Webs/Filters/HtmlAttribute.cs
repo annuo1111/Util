@@ -19,11 +19,6 @@ namespace Util.Webs.Filters {
     /// </summary>
     public class HtmlAttribute : ActionFilterAttribute {
         /// <summary>
-        /// 是否忽略，设置为true则不生成html文件
-        /// </summary>
-        public bool Ignore { get; set; }
-
-        /// <summary>
         /// 生成路径，相对根路径，范例：/Typings/app/app.component.html
         /// </summary>
         public string Path { get; set; }
@@ -32,6 +27,16 @@ namespace Util.Webs.Filters {
         /// 路径模板，范例：Typings/app/{area}/{controller}/{controller}-{action}.component.html
         /// </summary>
         public string Template { get; set; }
+
+        /// <summary>
+        /// 视图名称，范例：/Home/Index
+        /// </summary>
+        public string ViewName { get; set; }
+
+        /// <summary>
+        /// 是否部分视图，默认：true
+        /// </summary>
+        public bool IsPartialView { get; set; } = false;
 
         /// <summary>
         /// 执行生成
@@ -46,14 +51,14 @@ namespace Util.Webs.Filters {
         /// </summary>
         private async Task WriteViewToFileAsync( ResultExecutingContext context ) {
             try {
-                if( Ignore )
-                    return;
                 var html = await RenderToStringAsync( context );
                 if( string.IsNullOrWhiteSpace( html ) )
                     return;
                 var path = Util.Helpers.Common.GetPhysicalPath( string.IsNullOrWhiteSpace( Path ) ? GetPath( context ) : Path );
                 var directory = System.IO.Path.GetDirectoryName( path );
-                if ( Directory.Exists( directory ) == false )
+                if( string.IsNullOrWhiteSpace( directory ) )
+                    return;
+                if( Directory.Exists( directory ) == false )
                     Directory.CreateDirectory( directory );
                 File.WriteAllText( path, html );
             }
@@ -68,7 +73,7 @@ namespace Util.Webs.Filters {
         protected async Task<string> RenderToStringAsync( ResultExecutingContext context ) {
             string viewName = "";
             object model = null;
-            if ( context.Result is ViewResult result ) {
+            if( context.Result is ViewResult result ) {
                 viewName = result.ViewName;
                 viewName = string.IsNullOrWhiteSpace( viewName ) ? context.RouteData.Values["action"].SafeString() : viewName;
                 model = result.Model;
@@ -96,7 +101,8 @@ namespace Util.Webs.Filters {
             var area = context.RouteData.Values["area"].SafeString();
             var controller = context.RouteData.Values["controller"].SafeString();
             var action = context.RouteData.Values["action"].SafeString();
-            return Template.Replace( "{area}",area ).Replace( "{controller}", controller ).Replace( "{action}", action );
+            var path = Template.Replace( "{area}", area ).Replace( "{controller}", controller ).Replace( "{action}", action );
+            return path.ToLower();
         }
     }
 }

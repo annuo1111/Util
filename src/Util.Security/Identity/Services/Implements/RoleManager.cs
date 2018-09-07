@@ -1,10 +1,12 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Util.Domains.Services;
+using Util.Exceptions;
 using Util.Security.Identity.Extensions;
 using Util.Security.Identity.Models;
 using Util.Security.Identity.Repositories;
 using Util.Security.Identity.Services.Abstractions;
+using Util.Security.Properties;
 
 namespace Util.Security.Identity.Services.Implements {
     /// <summary>
@@ -38,12 +40,50 @@ namespace Util.Security.Identity.Services.Implements {
         /// </summary>
         /// <param name="role">角色</param>
         public virtual async Task CreateAsync( TRole role ) {
-            role.CheckNull( nameof( role ) );
-            var parent = await Repository.FindAsync( role.ParentId );
+            await ValidateCreate( role );
             role.Init();
+            var parent = await Repository.FindAsync( role.ParentId );
             role.InitPath( parent );
+            role.SortId = await Repository.GenerateSortIdAsync( role.ParentId );
             var result = await Manager.CreateAsync( role );
             result.ThrowIfError();
+        }
+
+        /// <summary>
+        /// 创建角色验证
+        /// </summary>
+        /// <param name="role">角色</param>
+        protected virtual async Task ValidateCreate( TRole role ) {
+            role.CheckNull( nameof( role ) );
+            if( await Repository.ExistsAsync( t => t.Code == role.Code ) )
+                ThrowDuplicateCodeException( role.Code );
+        }
+
+        /// <summary>
+        /// 抛出编码重复异常
+        /// </summary>
+        protected void ThrowDuplicateCodeException( string code ) {
+            throw new Warning( string.Format( SecurityResource.DuplicateRoleCode, code ) );
+        }
+
+        /// <summary>
+        /// 修改角色
+        /// </summary>
+        public async Task UpdateAsync( TRole role ) {
+            role.CheckNull( nameof( role ) );
+            await ValidateUpdate( role );
+            role.InitPinYin();
+            await Repository.UpdatePathAsync( role );
+            var result = await Manager.UpdateAsync( role );
+            result.ThrowIfError();
+        }
+
+        /// <summary>
+        /// 修改角色验证
+        /// </summary>
+        /// <param name="role">角色</param>
+        protected virtual Task ValidateUpdate( TRole role ) {
+            return Task.CompletedTask;
         }
     }
 }

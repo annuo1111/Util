@@ -29,6 +29,11 @@
     max-width: 48px;
     overflow: initial !important;
 }
+//mat表格单选框
+.mat-column-selectRadio {
+    max-width: 48px;
+    overflow: initial !important;
+}
 
 .mat-cell, .mat-header-cell {
     overflow: initial !important;
@@ -41,7 +46,6 @@
 //mat表格序号
 .mat-column-lineNumber {
     max-width: 48px;
-    justify-content: flex-end;
 }
 //mat表格行滑过样式
 .mat-row-hover {
@@ -79,4 +83,14 @@
 //修复表单组件宽度
 .mat-form-field {
     width: 100%;
+}
+//去除loading面板样式
+.loading-panel {
+    mat-dialog-container {
+        background: none;
+        box-shadow: none;
+    }
+    .mat-progress-spinner circle, .mat-spinner circle {
+        stroke: #2f3e9d;
+    }
 }

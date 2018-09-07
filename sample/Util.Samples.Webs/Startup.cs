@@ -12,6 +12,7 @@ using Util.Logs.Extensions;
 using Util.Samples.Webs.Datas;
 using Util.Samples.Webs.Datas.SqlServer;
 using Util.Webs.Extensions;
+using Util.Webs.Filters;
 
 namespace Util.Samples.Webs {
     /// <summary>
@@ -36,7 +37,11 @@ namespace Util.Samples.Webs {
         /// </summary>
         public IServiceProvider ConfigureServices( IServiceCollection services ) {
             //添加Mvc服务
-            services.AddMvc().AddControllersAsServices();
+            services.AddMvc( options => {
+                    //options.Filters.Add( new AutoValidateAntiforgeryTokenAttribute() );
+                    options.Filters.Add( new ExceptionHandlerAttribute() );
+                }
+            ).AddControllersAsServices();
 
             //添加NLog日志操作
             services.AddNLog();
@@ -57,6 +62,9 @@ namespace Util.Samples.Webs {
                 options.IncludeXmlComments( Path.Combine( AppContext.BaseDirectory, "Util.Webs.xml" ) );
                 options.IncludeXmlComments( Path.Combine( AppContext.BaseDirectory, "Util.Samples.Webs.xml" ) );
             } );
+
+            // 添加Razor静态Html生成器
+            services.AddRazorHtml();
 
             //添加Util基础设施服务
             return services.AddUtil();

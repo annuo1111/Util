@@ -3,9 +3,13 @@
 //Licensed under the MIT license
 //================================================
 import { HttpErrorResponse } from '@angular/common/http';
+import { LoadingComponent } from "../material/loading.component";
+import { Dialog } from './dialog';
 import { Result, FailResult, StateCode } from '../core/result';
 import { HttpHelper, HttpRequest, HttpContentType, HttpMethod } from '../angular/http-helper';
 import { Message } from './message';
+import { IocHelper as ioc } from '../angular/ioc-helper';
+import { Session } from "../security/session";
 
 /**
  * WebApi操作,与服务端返回的标准result对象交互
@@ -76,13 +80,9 @@ export class WebApiRequest<T> {
      */
     private btn;
     /**
-     * 按钮文本
+     * 是否显示进度条
      */
-    private btnText;
-    /**
-     * 禁用时显示的按钮文本
-     */
-    private disableText;
+    private isShowLoading?: boolean;
 
     /**
      * 初始化WebApi请求操作
@@ -155,14 +155,17 @@ export class WebApiRequest<T> {
     /**
      * 设置按钮
      * @param btn 按钮实例
-     * @param text 禁用时显示的按钮文本
      */
-    button(btn, text: string = "loading..."): WebApiRequest<T> {
-        if (!btn)
-            return this;
+    button(btn): WebApiRequest<T> {
         this.btn = btn;
-        this.disableText = text;
-        this.btnText = btn.text;
+        return this;
+    }
+
+    /**
+     * 请求时显示进度条
+     */
+    loading(isShowLoading?: boolean): WebApiRequest<T> {
+        this.isShowLoading = isShowLoading === undefined ? true : isShowLoading;
         return this;
     }
 
@@ -174,6 +177,21 @@ export class WebApiRequest<T> {
         if (!options)
             return;
         this.request.handle(
+            (result: Result<T>) => this.handleOk(options, result),
+            (error: HttpErrorResponse) => this.handleFail(options, undefined, error),
+            () => this.handleBefore(options),
+            () => this.handleComplete(options)
+        );
+    }
+
+    /**
+     * 处理响应
+     * @param options 响应处理器配置
+     */
+    async handleAsync(options: WebApiHandleOptions<T>): Promise<void> {
+        if (!options)
+            return;
+        return await this.request.handleAsync(
             (result: Result<T>) => this.handleOk(options, result),
             (error: HttpErrorResponse) => this.handleFail(options, undefined, error),
             () => this.handleBefore(options),
@@ -199,6 +217,7 @@ export class WebApiRequest<T> {
      */
     private handleFail(options: WebApiHandleOptions<T>, result?: Result<T>, errorResponse?: HttpErrorResponse) {
         let failResult = new FailResult(result, errorResponse);
+        this.handleHttpException(options, failResult);
         if (options.failHandler) {
             options.failHandler(failResult);
             return;
@@ -206,17 +225,6 @@ export class WebApiRequest<T> {
         if (result) {
             this.handleBusinessException(result);
             return;
-        }
-        this.handleHttpException(options, failResult);
-    }
-
-    /**
-     * 处理业务异常
-     */
-    private handleBusinessException(result: Result<T>) {
-        if (result.code === StateCode.Fail) {
-            Message.error(result.message);
-            console.log(`业务异常:\n${result.message}`);
         }
     }
 
@@ -237,8 +245,20 @@ export class WebApiRequest<T> {
         if (!failResult.errorResponse)
             return "";
         let error = failResult.errorResponse;
+        if (!error)
+            return "";
         return `Http请求异常：\nUrl:${error.url}\n状态码:${error.status},${error.statusText}\n`
-            + `错误消息:${error.message}\n错误响应:\n ${error.error.text}\n`;
+            + `错误消息:${error.message}\n错误响应:\n ${error.error && error.error.text}\n`;
+    }
+
+    /**
+     * 处理业务异常
+     */
+    private handleBusinessException(result: Result<T>) {
+        if (result.code === StateCode.Fail) {
+            Message.error(result.message);
+            console.log(`业务异常:\n${result.message}`);
+        }
     }
 
     /**
@@ -248,11 +268,31 @@ export class WebApiRequest<T> {
         let result = options && options.beforeHandler && options.beforeHandler();
         if (result === false)
             return false;
-        if (this.btn) {
-            this.btn.text = this.disableText;
-            this.btn.disabled = true;
-        }
+        this.disableButton();
+        this.showLoading();
         return true;
+    }
+
+    /**
+     * 禁用按钮
+     */
+    private disableButton() {
+        if (!this.btn)
+            return;
+        this.btn.disable();
+    }
+
+    /**
+     * 显示遮罩
+     */
+    private showLoading() {
+        if (!this.isShowLoading)
+            return;
+        Dialog.open({
+            panelClass: "loading-panel",
+            disableClose: true,
+            dialogComponent: LoadingComponent
+        });
     }
 
     /**
@@ -260,10 +300,26 @@ export class WebApiRequest<T> {
      */
     private handleComplete(options: WebApiHandleOptions<T>) {
         options && options.completeHandler && options.completeHandler();
-        if (this.btn) {
-            this.btn.text = this.btnText;
-            this.btn.disabled = false;
-        }
+        this.enableButton();
+        this.closeLoading();
+    }
+
+    /**
+     * 启用按钮
+     */
+    private enableButton() {
+        if (!this.btn)
+            return;
+        this.btn.enable();
+    }
+
+    /**
+     * 关闭遮罩
+     */
+    private closeLoading() {
+        if (!this.isShowLoading)
+            return;
+        Dialog.close();
     }
 }
 
@@ -288,4 +344,3 @@ export class WebApiHandleOptions<T> {
      */
     completeHandler?: () => void;
 }
-

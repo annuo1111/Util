@@ -2,12 +2,12 @@
 //Copyright 2018 何镇汐
 //Licensed under the MIT license
 //================================================
-import { NgModule } from '@angular/core';
+import { NgModule, Injector } from '@angular/core';
 //Angular模块
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
-import { HttpClientModule } from "@angular/common/http";
+import { HttpClientModule, HTTP_INTERCEPTORS } from "@angular/common/http";
 
 //flex布局模块
 import { FlexLayoutModule } from '@angular/flex-layout';
@@ -27,8 +27,14 @@ import {
 //PrimeNg模块
 import { MessageService } from 'primeng/components/common/messageservice';
 import {
-     GrowlModule, LightboxModule
+    GrowlModule, LightboxModule, ColorPickerModule
 } from 'primeng/primeng';
+
+//CKEditor模块
+import { CKEditorModule } from 'ng2-ckeditor';
+
+//Echarts图表模块
+import { EchartsNg2Module } from 'echarts-ng2';
 
 //Util Material组件
 import { UtilDateAdapter } from './material/local/date-adapter';
@@ -42,15 +48,28 @@ import { RadioWrapperComponent } from './material/radio-wrapper.component';
 import { SelectListWrapperComponent } from './material/select-list-wrapper.component';
 import { DialogWrapperComponent } from './material/dialog-wrapper.component';
 import { ConfirmComponent } from './material/confirm.component';
+import { LoadingComponent } from "./material/loading.component";
 
 //Util Prime组件
 import { TreeTableModule } from './prime/treetable.component';
+
+//Util指令
+import { MinValidator } from './directives/min-validator.directive';
+import { MaxValidator } from './directives/max-validator.directive';
 
 //Util管道
 import { SafeUrlPipe } from './pipes/safe-url.pipe';
 
 //Util服务
 import { DicService } from './services/dic.service';
+import { SaveGuard } from './services/save-guard';
+import { Session } from './security/session';
+
+//授权
+import { Authorize as OidcAuthorize } from './security/openid-connect/authorize';
+import { AuthorizeService as OidcAuthorizeService } from './security/openid-connect/authorize-service';
+import { AuthorizeConfig as OidcAuthorizeConfig } from './security/openid-connect/authorize-config';
+import { AuthorizeInterceptor } from "./security/openid-connect/authorize-interceptor";
 
 /**
  * Util模块
@@ -65,14 +84,14 @@ import { DicService } from './services/dic.service';
         MatSidenavModule, MatToolbarModule, MatCardModule, MatExpansionModule, MatGridListModule,
         MatListModule, MatDialogModule,
         MatProgressSpinnerModule, MatPaginatorModule, MatIconModule, MatButtonModule, MatTooltipModule,
-        GrowlModule, LightboxModule,
-        TreeTableModule
+        GrowlModule, LightboxModule, ColorPickerModule,
+        TreeTableModule, CKEditorModule, EchartsNg2Module
     ],
     declarations: [
         TableWrapperComponent, SelectWrapperComponent, TextBoxWrapperComponent, TextareaWrapperComponent,
         DatePickerWrapperComponent, ButtonWrapperComponent, RadioWrapperComponent, SelectListWrapperComponent,
-        DialogWrapperComponent, ConfirmComponent,
-        SafeUrlPipe
+        DialogWrapperComponent, ConfirmComponent, LoadingComponent,
+        MinValidator, MaxValidator, SafeUrlPipe
     ],
     exports: [
         CommonModule, FormsModule, RouterModule, HttpClientModule, FlexLayoutModule,
@@ -83,21 +102,22 @@ import { DicService } from './services/dic.service';
         MatSidenavModule, MatToolbarModule, MatCardModule, MatExpansionModule, MatGridListModule,
         MatListModule, MatDialogModule,
         MatProgressSpinnerModule, MatPaginatorModule, MatIconModule, MatButtonModule, MatTooltipModule,
-        GrowlModule,  LightboxModule,
+        GrowlModule, LightboxModule, ColorPickerModule,
         TableWrapperComponent, SelectWrapperComponent, TextBoxWrapperComponent, TextareaWrapperComponent,
         DatePickerWrapperComponent, ButtonWrapperComponent, RadioWrapperComponent, SelectListWrapperComponent,
-        TreeTableModule,
-        SafeUrlPipe
+        TreeTableModule, CKEditorModule, EchartsNg2Module,
+        MinValidator, MaxValidator, SafeUrlPipe
     ],
     entryComponents: [
-        DialogWrapperComponent, ConfirmComponent
+        DialogWrapperComponent, ConfirmComponent, LoadingComponent
     ],
     providers: [
-        MessageService, MAT_DATE_LOCALE_PROVIDER, DicService,
+        MessageService, MAT_DATE_LOCALE_PROVIDER,
         { provide: MatPaginatorIntl, useFactory: createMatPaginatorIntl },
         { provide: MAT_DATE_LOCALE, useValue: 'zh-cn' },
         { provide: DateAdapter, useClass: UtilDateAdapter },
-        { provide: MAT_DATE_FORMATS, useValue: MAT_NATIVE_DATE_FORMATS }
+        { provide: MAT_DATE_FORMATS, useValue: MAT_NATIVE_DATE_FORMATS },
+        DicService, Session, SaveGuard
     ]
 })
 export class UtilModule {
@@ -119,4 +139,15 @@ export function createMatPaginatorIntl() {
         return `当前：${startIndex + 1} - ${endIndex}，共: ${length}`;
     };
     return result;
+}
+
+/**
+ * 创建OpenId Connect服务DI配置
+ */
+export function createOidcProviders() {
+    return [
+        { provide: OidcAuthorizeService, useClass: OidcAuthorizeService, deps: [OidcAuthorizeConfig] },
+        { provide: OidcAuthorize, useClass: OidcAuthorize, deps: [Injector, Session, OidcAuthorizeService] },
+        { provide: HTTP_INTERCEPTORS, useClass: AuthorizeInterceptor, deps: [OidcAuthorizeService], multi: true }
+    ];
 }

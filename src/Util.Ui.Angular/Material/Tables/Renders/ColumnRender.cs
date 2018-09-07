@@ -1,4 +1,5 @@
 ﻿using Util.Ui.Angular.Builders;
+using Util.Ui.Angular.Renders;
 using Util.Ui.Builders;
 using Util.Ui.Configs;
 using Util.Ui.Enums;
@@ -7,13 +8,12 @@ using Util.Ui.Material.Forms.Builders;
 using Util.Ui.Material.Icons.Builders;
 using Util.Ui.Material.Tables.Builders;
 using Util.Ui.Material.Tables.Configs;
-using Util.Ui.Renders;
 
 namespace Util.Ui.Material.Tables.Renders {
     /// <summary>
     /// 列渲染器
     /// </summary>
-    public class ColumnRender : RenderBase {
+    public class ColumnRender : AngularRenderBase {
         /// <summary>
         /// 配置
         /// </summary>
@@ -68,6 +68,7 @@ namespace Util.Ui.Material.Tables.Renders {
         private void ConfigType( TagBuilder builder ) {
             ConfigLineNumber();
             ConfigCheckbox( builder );
+            ConfigRadio( builder );
         }
 
         /// <summary>
@@ -116,6 +117,49 @@ namespace Util.Ui.Material.Tables.Renders {
             checkBoxBuilder.AddAttribute( "[checked]", $"{_tableId}.checkedSelection.isSelected(row)" );
             var cellBuilder = new CellBuilder();
             cellBuilder.AppendContent( checkBoxBuilder );
+            builder.AppendContent( cellBuilder );
+        }
+
+        /// <summary>
+        /// 配置单选框
+        /// </summary>
+        private void ConfigRadio( TagBuilder builder ) {
+            if( _config.GetValue<TableColumnType?>( UiConst.Type ) != TableColumnType.Radio )
+                return;
+            _config.SetAttribute( UiConst.Column, "selectRadio" );
+            ConfigRadioHeader( builder );
+            ConfigRadioCell( builder );
+        }
+
+        /// <summary>
+        /// 配置单选框列头
+        /// </summary>
+        private void ConfigRadioHeader( TagBuilder builder ) {
+            var headerCellBuilder = new HeaderCellBuilder();
+            headerCellBuilder.AppendContent( GetRadioTitle() );
+            builder.AppendContent( headerCellBuilder );
+        }
+
+        /// <summary>
+        /// 获取单选标题
+        /// </summary>
+        private string GetRadioTitle() {
+            var result = _config.GetValue( UiConst.Title );
+            if ( result.IsEmpty() )
+                return "选择";
+            return result;
+        }
+
+        /// <summary>
+        /// 配置单选框单元格
+        /// </summary>
+        private void ConfigRadioCell( TagBuilder builder ) {
+            var radioBuilder = new RadioButtonBuilder();
+            radioBuilder.AddAttribute( "(click)", "$event.stopPropagation()" );
+            radioBuilder.AddAttribute( "(change)", $"$event?{_tableId}.checkRow(row):null" );
+            radioBuilder.AddAttribute( "[checked]", $"{_tableId}.checkedSelection.isSelected(row)" );
+            var cellBuilder = new CellBuilder();
+            cellBuilder.AppendContent( radioBuilder );
             builder.AppendContent( cellBuilder );
         }
 

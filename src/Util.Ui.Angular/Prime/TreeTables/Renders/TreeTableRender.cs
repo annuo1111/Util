@@ -1,16 +1,15 @@
 ﻿using Util.Helpers;
+using Util.Ui.Angular.Renders;
 using Util.Ui.Builders;
 using Util.Ui.Configs;
 using Util.Ui.Enums;
-using Util.Ui.Extensions;
 using Util.Ui.Prime.TreeTables.Builders;
-using Util.Ui.Renders;
 
 namespace Util.Ui.Prime.TreeTables.Renders {
     /// <summary>
     /// 树型表格渲染器
     /// </summary>
-    public class TreeTableRender : RenderBase {
+    public class TreeTableRender : AngularRenderBase {
         /// <summary>
         /// 配置
         /// </summary>
@@ -37,15 +36,15 @@ namespace Util.Ui.Prime.TreeTables.Renders {
         /// 配置
         /// </summary>
         protected virtual void Config( TagBuilder builder ) {
-            builder.Class( _config );
-            builder.Style( _config );
             ConfigId( builder );
             ConfigQueryParam( builder );
             ConfigUrl( builder );
             ConfigSelectionMode( builder );
+            ConfigSelection( builder );
             ConfigAutoLoad( builder );
             ConfigPageSizeOptions( builder );
             ConfigContent( builder );
+            ConfigEvents( builder );
         }
 
         /// <summary>
@@ -55,15 +54,14 @@ namespace Util.Ui.Prime.TreeTables.Renders {
             var id = _config.GetValue( UiConst.Id );
             id = id.IsEmpty() ? Id.Guid() : id;
             builder.AddAttribute( $"#{id}" );
-            builder.AddAttribute( "key", id );
+            builder.AddAttribute( "key", _config.GetValue( UiConst.Key ) );
         }
 
         /// <summary>
         /// 配置查询参数
         /// </summary>
         private void ConfigQueryParam( TagBuilder builder ) {
-            builder.AddAttribute( "[queryParam]", _config.GetValue( UiConst.QueryParam ) );
-            builder.AddAttribute( "(onQueryRestore)", _config.GetValue( UiConst.OnQueryRestore ) );
+            builder.AddAttribute( "[(queryParam)]", _config.GetValue( UiConst.QueryParam ) );
         }
 
         /// <summary>
@@ -87,7 +85,18 @@ namespace Util.Ui.Prime.TreeTables.Renders {
                 case SelectionMode.Single:
                     builder.AddAttribute( "selectionMode", "single" );
                     return;
+                case SelectionMode.SingleLeafOnly:
+                    builder.AddAttribute( "selectionMode", "single" );
+                    builder.AddAttribute( "[leafOnly]", "true" );
+                    return;
             }
+        }
+
+        /// <summary>
+        /// 配置选中节点
+        /// </summary>
+        private void ConfigSelection( TagBuilder builder ) {
+            builder.AddAttribute( "[(selection)]", _config.GetValue( UiConst.Selection ) );
         }
 
         /// <summary>
@@ -107,6 +116,16 @@ namespace Util.Ui.Prime.TreeTables.Renders {
             if( value.StartsWith( "[" ) == false )
                 value = $"[{value}]";
             builder.AddAttribute( "[pageSizeOptions]", value );
+        }
+
+        /// <summary>
+        /// 配置事件
+        /// </summary>
+        private void ConfigEvents( TagBuilder builder ) {
+            builder.AddAttribute( "(onLoad)", _config.GetValue( UiConst.OnLoad ) );
+            builder.AddAttribute( "(onCheck)", _config.GetValue( UiConst.OnCheck ) );
+            builder.AddAttribute( "(onClickRow)", _config.GetValue( UiConst.OnClickRow ) );
+            builder.AddAttribute( "[checkOnClickRow]", _config.GetBoolValue( UiConst.CheckOnClickRow ) );
         }
     }
 }

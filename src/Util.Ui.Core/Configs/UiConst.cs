@@ -296,6 +296,10 @@
         /// </summary>
         public const string Selected = "selected";
         /// <summary>
+        /// 选中
+        /// </summary>
+        public const string Selection = "selection";
+        /// <summary>
         /// 标题
         /// </summary>
         public const string Title = "title";
@@ -303,6 +307,10 @@
         /// 查询参数
         /// </summary>
         public const string QueryParam = "query-param";
+        /// <summary>
+        /// 查询参数
+        /// </summary>
+        public const string QueryParams = "query-params";
         /// <summary>
         /// 基地址
         /// </summary>
@@ -399,5 +407,89 @@
         /// 选择模式
         /// </summary>
         public const string SelectionMode = "selection-mode";
+        /// <summary>
+        /// 等待文本
+        /// </summary>
+        public const string WaitingText = "waiting-text";
+        /// <summary>
+        /// 等待图标
+        /// </summary>
+        public const string WaitingIcon = "waiting-icon";
+        /// <summary>
+        /// 内联
+        /// </summary>
+        public const string Inline = "inline";
+        /// <summary>
+        /// 独立
+        /// </summary>
+        public const string Standalone = "standalone";
+        /// <summary>
+        /// 上传地址
+        /// </summary>
+        public const string UploadUrl = "upload-url";
+        /// <summary>
+        /// 标识
+        /// </summary>
+        public const string Key = "key";
+        /// <summary>
+        /// 加载事件
+        /// </summary>
+        public const string OnLoad = "on-load";
+        /// <summary>
+        /// 选中事件
+        /// </summary>
+        public const string OnCheck = "on-check";
+        /// <summary>
+        /// 单击行事件
+        /// </summary>
+        public const string OnClickRow = "on-click-row";
+        /// <summary>
+        /// 单击行时选中
+        /// </summary>
+        public const string CheckOnClickRow = "check-on-click-row";
+        /// <summary>
+        /// 激活
+        /// </summary>
+        public const string Active = "active";
+        /// <summary>
+        /// 禁用过滤
+        /// </summary>
+        public const string DisableFilter = "disable-filter";
+        /// <summary>
+        /// 精确匹配
+        /// </summary>
+        public const string Exact = "exact";
+        /// <summary>
+        /// 冻结头部
+        /// </summary>
+        public const string StickyHeader = "sticky-header";
+        /// <summary>
+        /// 模式
+        /// </summary>
+        public const string Pattern = "pattern";
+        /// <summary>
+        /// 正则表达式
+        /// </summary>
+        public const string Regex = "regex";
+        /// <summary>
+        /// 正则表达式错误消息
+        /// </summary>
+        public const string RegexMessage = "regex-message";
+        /// <summary>
+        /// 最小值
+        /// </summary>
+        public const string Min = "min";
+        /// <summary>
+        /// 最小值错误消息
+        /// </summary>
+        public const string MinMessage = "min-message";
+        /// <summary>
+        /// 最大值
+        /// </summary>
+        public const string Max = "max";
+        /// <summary>
+        /// 最大值错误消息
+        /// </summary>
+        public const string MaxMessage = "max-message";
     }
 }
